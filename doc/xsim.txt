@@ -1,0 +1,152 @@
+# XSimulator
+
+CS2410 Project 1
+
+C++ Implementation of the "XSimulator"
+
+This project implements a functional simulator for a simple instruction set
+architecture based on MIPS. It reads an input file, configuration file, and outputs
+a file. An instruction trace is output to the standard output.
+
+Requirements:
+	This program requires the -ljsoncpp library
+
+To Compile:
+	The Makefile provided will compile the program.
+
+To Execute:
+	./xsim [input_file] [configuration_file] [output_file]
+
+The input file is a list of encoded instructions in HEX with one instruction 
+per line. Comments are indicated by a # at the start of the line. All programs must
+end with a HALT instruction
+
+EX:	# HELLO WORLD
+	  8001
+	  0100
+	  0220
+	  8BFF
+	# HALT
+	  6800
+
+The configuration file is a JSON file. It allows the latency (in clock cycles) of 
+instructions to be configured. The configurable instructions are ADD SUB AND NOR
+DIV MUL MOD and EXP. The default latency is 1 clock cycle.
+
+EX:	{"add":2,
+	 "and":3,
+	 "exp":8,
+	 "nor":4}
+
+The output file is a JSON file. It lists statistics from the program including the
+total number of clock cycles, total number of instructions, number of occurances
+of each instruction, and the current values in the registers.
+
+Explanation of Instructions:
+
+( 1) ADD (00000)
+This instruction performs addition of two signed values. Positive and Negative overflow are ignored.
+( 2) SUB (00001)
+This instruction performs subtraction of two signed values. Positive and Negative overflow are ignored.
+( 3) AND (00010)
+This function performs the bitwise ANDing of two registers
+( 4) NOR (00011)
+This function performs the bitwise NORing of two registers
+( 5) DIV (00100)
+This function performs the division of two signed values. On divide by zero, the program terminates.
+( 6) MUL (00101)
+This function perfroms the integer multiplication of two signed values. Only the 16 low bits are saved after the operation.
+( 7) MOD (00110)
+This function performs the modulus division of two signed values. On mod by zero, the program terminates
+( 8) EXP (00111)
+This function performs the exponentiation of two signed values. Only the 16 low bits are saved after the operation
+( 9) LW (01000)
+This function loads a word (2-bytes) from memory. It is assumed that the address to be loaded from is already word-aligned in the register file.
+(10) SW (01001)
+This function stores a word (2-bytes) to a memory location. It is assumed that the address to save to is already word-aligned in the register file.
+(11) LIZ (10000)
+This function zero-extends an 8 bit immediate to a 16 bit value in the register file. The 8-bit immediate is assumed to be unsigned.
+(12) LIS (10001)
+This function sign extends an 8-bit immediate to a 16 bit value in the register file. The 80bit immediate is assumed to be signed.
+(13) LUI (10010)
+This function overrides the 8-high bits of a value in the register file with an 8-bit immediate. The immediate is assumed to be unsigned
+(14) BP (10100)
+This function takes a branch when the value in the register file is positive. The immediate is shifted by 1 to make it word-aligned
+(15) BN (10101)
+This function takes a branch when the value in the register file is negative. The immediate is shifted by 1 to make it word-aligned
+(16) BX (10110)
+This function takes a branch when the value in the register file is not equal to 0. The immediate is shifted by 1 to make it word-aligned
+(17) BZ (10111)
+This function takes a branch when the value in the register file is equal to 0. The immediate is shifted by 1 to make it word-aligned
+(18) JR (01100)
+This function is used to set the program counter to the address of the next instruction in the caller program
+(19) JALR (10011)
+This function is used to save the address of the next instruction and jump to another address. This performs a function call
+(20) J (11000)
+This function is used to jump to an address. The 4 high bits of the program counter are concatenated with an 11-bit immediate shifted by 1 to word align the address
+(21) HALT (01101)
+This function causes the program to cease termination
+(22) PUT (01110)
+This function outputs to the terminal the value in the given register
+
+Instruction Definitions:
+
+ Opcode | Format |    Instruction    |  Definition
+----------------------------------------------------------------------------------
+ 00000  |   R    | add $rd, $rs, $rt | $rd <-- $rs + $rt
+ 00001  |   R    | sub $rd, $rs, $rt | $rd <-- $rs - $rt
+ 00010  |   R    | and $rd, $rs, $rt | $rd <-- $rs & $rt
+ 00011  |   R    | nor $rd, $rs, $rt | $rd <-- ~($rs | $rt)
+----------------------------------------------------------------------------------
+ 00100  |   R    | div $rd, $rs, $rt | $rd <-- $rs / $rt
+ 00101  |   R    | mul $rd, $rs, $rt | $rd <-- low16($rs * $rt)
+ 00110  |   R    | mod $rd, $rs, $rt | $rd <-- $rs mod $rt
+ 00111  |   R    | exp $rd, $rs, $rt | $rd <-- low16($rs ** $rt)
+----------------------------------------------------------------------------------
+ 01000  |   R    | lw $rd, $rs       | $rd <-- MEM[word_aligned_address($rs)]
+ 01001  |   R    | sw $rt, $rs       | MEM[word_aligned_address($rs)] <-- $rt
+ 10000  |   I    | liz $rd, imm8     | $rd <-- z_ext(imm8)
+ 10001  |   I    | lis $rd, imm8     | $rd <-- s_ext(imm8)
+ 10010  |   I    | lui $rd, imm8     | $rd <-- imm8 . $rd7..$rd0
+----------------------------------------------------------------------------------
+ 10100  |   I    | bp $rd, imm8      | PC <-- ($rd > 0) ? z_ext(imm8<<1) : PC + 2
+ 10101  |   I    | bn $rd, imm8      | PC <-- ($rd < 0) ? z_ext(imm8<<1) : PC + 2
+ 10110  |   I    | bx $rd, imm8      | PC <-- ($rd ~= 0) ? z_ext(imm8<<1) : PC + 2
+ 10111  |   I    | bz $rd, imm8      | PC <-- ($rd = 0) ? z_ext(imm8<<1) : PC + 2
+----------------------------------------------------------------------------------
+ 01100  |   R    | jr $rs            | PC <-- $rs
+ 10011  |   R    | jalr $rd, $rs     | $rd <-- PC + 2; PC <-- $rs
+ 11000  |   IX   | j imm11	     | PC <-- PC15..PC12 . (imm11<<1)
+----------------------------------------------------------------------------------
+ 01101  |   R    | halt              | Stop fetching and Terminate
+ 01110  |   R    | put $rs           | Output $rs to Standout Output
+----------------------------------------------------------------------------------
+
+Instruction Types:
+
+    R|  15-11  |  10-8  |  7-5  |  4-2  |  1-0  |
+     |  Opcode |   rd   |   rs  |   rt  | unused|
+    ---------------------------------------------
+    I|  15-11  |  10-8  |  7-0  |
+     |  Opcode |   rd   |  imm8 |
+    ---------------------------------------------
+   IX|  15-11  |  10-0  |
+     |  Opcode |  imm11 |
+    ---------------------------------------------
+
+NOTES:
+
+The operator . (dot) is bit concatenation
+The operator ** is exponentiation
+The function s_ext does sign extension of the immediate to a 16-bit 2's complement number
+The function z_ext does zero extension of the immediate to a 16-bit unsigned number
+All branches use absolute addressing
+rd is the destination
+rs is the first source
+rt is the second source
+All immediates are unsigned
+For branches and jump, the immediate is shifted left by one
+All arithmetic is signed
+All arithmetic is integer aritmetic
+The program counter always starts at 0
+The program must end in a HALT instruction
