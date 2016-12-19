@@ -1,6 +1,7 @@
 CC := g++ 
 SRCDIR := src
 BUILDDIR := build
+COMDIR := common
 TARGET := bin/xsim
  
 SRCEXT := cpp
